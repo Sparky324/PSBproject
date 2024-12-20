@@ -1,7 +1,10 @@
+import json
+import re
 import requests
 from bs4 import BeautifulSoup
 import pandas as pd
 import time
+from html import unescape
 
 
 # Функция для парсинга отзывов с одной страницы
@@ -19,20 +22,29 @@ def parse_reviews_page(url):
     # Находим все элементы с отзывами на странице
     review_elements = soup.find_all('div', class_="la8a5ef73")
 
+    rate = soup.find_all('div', class_="lb3db10af lb57a25cc")
+    titl = soup.find_all('a', class_="link-simple")
+    txt = soup.find_all('div', class_="l22dd3882")
+    dat = soup.find_all('span', class_="l0caf3d5f")
 
-    for review_elem in review_elements:
-        print(review_elem)
-        print("_______________________________________________________________")
+    #print(dat[0].text.strip())
+    #print(txt[0].find('a')['href'])
 
-        rate = soup.find_all('div', class_="lb3db10af lb57a25cc")
-        print(rate)             #selenium
+    for i in range(len(txt)):
+        response1 = requests.get("https://www.banki.ru" + txt[i].find('a')['href'])
+        soup1 = BeautifulSoup(response1.text, 'html.parser')
+        #print("https://www.banki.ru" + txt[i].find('a')['href'])
+        data = json.loads(re.sub(r'[\x00-\x1f\x7f]', '', soup1.find('script', type="application/ld+json").string))
+        #print(data)
+        #print(soup1.find('script', type="application/ld+json"))
+
+        #print(len(txt))
 
         reviews.append({
-            'Rating': rating,
-            'Title': title,
-            'Text': text,
-            'Date': date,
-            'Bank Reply': bank_reply
+            'Rating': data['reviewRating']['ratingValue'],
+            'Title': data['name'],
+            'Text': unescape(data['author']['reviewBody']).replace('<p>', '').replace('</p>', '').replace('<ul>', '').replace('<li>', '').replace('</li>', '').replace('</ul>', ''),
+            #'Date': date,
         })
 
     return reviews
@@ -58,7 +70,7 @@ if __name__ == "__main__":
     base_url = "https://www.banki.ru/services/responses/bank/promsvyazbank/"
 
     # Получаем все отзывы с нескольких страниц
-    reviews = get_all_reviews(base_url, num_pages=10)
+    reviews = get_all_reviews(base_url, num_pages=1)
 
     # Создаем DataFrame и сохраняем в Excel
     if reviews:
